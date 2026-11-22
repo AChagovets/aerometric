@@ -451,8 +451,17 @@ html, body {
 .verdict-card {
   border-radius: var(--radius-md);
   border: 1.5px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.28);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  margin: 0;
+}
+
+[data-theme="light"] .verdict-card {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.12);
 }
 
 .verdict-card.expanded-verdict {
@@ -534,15 +543,16 @@ html, body {
 
 .verdict-time-pill {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1.5px 6px;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 2.5px 8.5px;
   border-radius: 999px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   color: var(--text);
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: -0.01em;
 }
 
 .verdict-reason {
@@ -564,6 +574,7 @@ html, body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  margin: 0;
 }
 
 .metric-card {
@@ -580,9 +591,24 @@ html, body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.20), 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.25);
   position: relative;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+[data-theme="light"] .metric-card {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.metric-card:active {
+  transform: translateY(1.5px) scale(0.985);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .metric-card.status-good {
@@ -864,8 +890,11 @@ html, body {
 
 .scrubber-time {
   font-family: var(--font-mono);
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--accent);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .scrubber-bar-wrap {
@@ -1531,6 +1560,52 @@ input[type="range"].time-slider {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Metric Detail Modal Content */
+.modal-metric-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.modal-metric-stat .stat-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.modal-metric-stat .stat-val {
+  font-family: var(--font-mono);
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.modal-metric-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.modal-metric-info-block .info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+}
+.modal-metric-info-block .info-row span {
+  color: var(--text-muted);
+}
+.modal-metric-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
 }
 
 .search-row {

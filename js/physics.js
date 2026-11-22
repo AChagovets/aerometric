@@ -272,10 +272,19 @@ export function buildHourlyProfile(raw, idx) {
     if (targetAgl <= 70) zone = 'fpv';
     else if (targetAgl >= 300 && targetAgl <= 1000) zone = 'wing';
 
+    // Variant 2: Aerodynamic gusts calculation at altitude (never lower than sustained wind!)
+    const groundGusts = cleanZero(h.wind_gusts_10m?.[idx] ?? (w10 ?? 0) * 1.3);
+    const gusts = cleanZero(
+      targetAgl <= 10
+        ? groundGusts
+        : Math.max(Math.round(wind * 1.25 * 10) / 10, groundGusts, wind)
+    );
+
     return {
       agl: targetAgl,
       msl: Math.round(elev + targetAgl),
       wind,
+      gusts,
       dir,
       temp,
       dew,
@@ -324,10 +333,6 @@ export function evaluateCellSuitability(snap, lvl, settings, vehicleFilter = 'al
     if (snap.fpv.gusts >= maxGusts) escalate('danger');
     else if (snap.fpv.gusts >= maxGusts * 0.82) escalate('warn');
   }
-
-  // Icing at this altitude
-  if (lvl.icing === 'high') escalate('danger');
-  else if (lvl.icing === 'mod') escalate('warn');
 
   // Precipitation
   const maxRain = settings.maxRainProb ?? 65;
@@ -380,20 +385,33 @@ export function buildHourSnapshot(raw, idx, settings, kpValue) {
 
   const highIceAlts = icingScopeLevels.filter((l) => l.icing === 'high').map((l) => l.agl);
   const modIceAlts = icingScopeLevels.filter((l) => l.icing === 'mod').map((l) => l.agl);
-  const safeAlts = icingScopeLevels.filter((l) => l.icing === 'none').map((l) => l.agl);
 
   let icingLevel = 'none';
   let icingZoneText = '';
-  let safeIcingZoneText = '';
-
   if (highIceAlts.length > 0) {
     icingLevel = 'high';
     icingZoneText = formatAltRange(highIceAlts);
-    if (safeAlts.length > 0) safeIcingZoneText = formatAltRange(safeAlts);
   } else if (modIceAlts.length > 0) {
     icingLevel = 'mod';
     icingZoneText = formatAltRange(modIceAlts);
-    if (safeAlts.length > 0) safeIcingZoneText = formatAltRange(safeAlts);
+  }
+
+  // Safe icing corridor across working altitudes (or all levels)
+  const safeLevels = levels.filter((l) => l.icing === 'none').map((l) => l.agl);
+  let safeIcingZoneText = '';
+  if (safeLevels.length === levels.length) {
+    safeIcingZoneText = 'всі ешелони (до 1500 м)';
+  } else if (safeLevels.length === 0) {
+    safeIcingZoneText = 'немає (обмерзання 10–1500 м)';
+  } else {
+    const minSafe = Math.min(...safeLevels);
+    if (minSafe === 10) {
+      const firstIceLvl = levels.find((l) => l.icing !== 'none');
+      const maxGroundSafe = firstIceLvl ? firstIceLvl.agl : Math.max(...safeLevels);
+      safeIcingZoneText = `до ${maxGroundSafe} м`;
+    } else {
+      safeIcingZoneText = formatAltRange(safeLevels);
+    }
   }
 
   const temp2m = cleanZero(h.temperature_2m?.[idx] ?? 0);
@@ -484,12 +502,11 @@ export function buildHourSnapshot(raw, idx, settings, kpValue) {
     reasons.push(copy.reasonCloudLow(cloudBase.meters, cloudBase.density));
   }
 
+  // Note: Icing is an atmospheric advisory (facultative) and does NOT degrade overall flight verdict!
   if (icingLevel === 'high') {
-    setLevel('danger');
-    reasons.push(copy.reasonIcingHigh(icingZoneText, safeIcingZoneText));
+    if (status !== 'good') reasons.push(copy.reasonIcingHigh(icingZoneText, safeIcingZoneText));
   } else if (icingLevel === 'mod') {
-    setLevel('warn');
-    reasons.push(copy.reasonIcingMod(icingZoneText, safeIcingZoneText));
+    if (status !== 'good') reasons.push(copy.reasonIcingMod(icingZoneText, safeIcingZoneText));
   }
 
   const maxRain = settings.maxRainProb ?? 65;

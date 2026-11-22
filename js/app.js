@@ -187,6 +187,34 @@ function formatRealDateTime(iso, baseIso, isNow = false) {
   return `${meta.weekday}, ${meta.dateLabel} • ${hr}`;
 }
 
+function formatScrubberDateTime(iso, baseIso, isNow = false) {
+  if (!iso) return '—';
+  const hr = formatHourShort(iso);
+  if (isNow) return `Зараз • ${hr}`;
+
+  if (baseIso) {
+    const dCur = iso.slice(0, 10);
+    const dBase = baseIso.slice(0, 10);
+    if (dCur === dBase) return `Сьогодні • ${hr}`;
+
+    const [y, m, d] = dBase.split('-').map(Number);
+    const tomorrow = new Date(y, m - 1, d + 1);
+    const tomStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+      tomorrow.getDate()
+    ).padStart(2, '0')}`;
+    if (dCur === tomStr) return `Завтра • ${hr}`;
+
+    const afterTomorrow = new Date(y, m - 1, d + 2);
+    const afterTomStr = `${afterTomorrow.getFullYear()}-${String(afterTomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+      afterTomorrow.getDate()
+    ).padStart(2, '0')}`;
+    if (dCur === afterTomStr) return `Післязавтра • ${hr}`;
+  }
+
+  const meta = formatDayMeta(iso);
+  return `${meta.weekday}, ${meta.dateLabel} • ${hr}`;
+}
+
 function buildSliderTicks(raw, baseIdx, maxOffset) {
   const count = 4;
   const ticks = [];
@@ -474,7 +502,7 @@ function renderConditionsCore(raw, hourIdx) {
   let windCardsHtml = '';
   if (profile === 'fpv') {
     windCardsHtml = `
-      <div class="metric-card fpv-card status-${fpvSev}">
+      <div class="metric-card fpv-card status-${fpvSev}" data-metric="wind">
         <div class="metric-header">
           <span class="metric-label">${copy.fpvLabel}</span>
           <span class="corridor-tag fpv">10–70 м</span>
@@ -486,7 +514,7 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-sub">${alignHtml || `Стабільний вітер (10–70 м)`}</div>
       </div>
 
-      <div class="metric-card fpv-card status-${gustSev}">
+      <div class="metric-card fpv-card status-${gustSev}" data-metric="gusts">
         <div class="metric-header">
           <span class="metric-label">Пориви біля землі</span>
           <span class="corridor-tag fpv">10 м</span>
@@ -499,7 +527,7 @@ function renderConditionsCore(raw, hourIdx) {
     `;
   } else {
     windCardsHtml = `
-      <div class="metric-card wing-card status-${wingSev}">
+      <div class="metric-card wing-card status-${wingSev}" data-metric="wind">
         <div class="metric-header">
           <span class="metric-label">${copy.wingLabel}</span>
           <span class="corridor-tag wing">300–1000 м</span>
@@ -511,7 +539,7 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-sub">Робочий ешелон Крил (ліміт ${fmtW(state.settings.maxWingWind)}&nbsp;${unit})</div>
       </div>
 
-      <div class="metric-card status-${fpvCardSev}">
+      <div class="metric-card status-${fpvCardSev}" data-metric="gusts">
         <div class="metric-header">
           <span class="metric-label">Зліт / Посадка</span>
           <span class="corridor-tag wing">10 м</span>
@@ -557,7 +585,7 @@ function renderConditionsCore(raw, hourIdx) {
     <section class="metrics-grid">
       ${windCardsHtml}
 
-      <div class="metric-card status-${cbSev}">
+      <div class="metric-card status-${cbSev}" data-metric="cloud-base">
         <div class="metric-header">
           <span class="metric-label">${copy.cloudBaseLabel}</span>
           <span class="mono" style="font-size:11px;font-weight:700;color:var(--text-muted)">${snap.cloudBase.density}%</span>
@@ -573,7 +601,7 @@ function renderConditionsCore(raw, hourIdx) {
         </div>
       </div>
 
-      <div class="metric-card status-${precipSev}">
+      <div class="metric-card status-${precipSev}" data-metric="rain">
         <div class="metric-header">
           <span class="metric-label">${copy.precipLabel}</span>
         </div>
@@ -583,17 +611,17 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-sub">Вірогідність: <strong class="mono">${Math.round(snap.precipProb)}%</strong></div>
       </div>
 
-      <div class="metric-card ${snap.icingLevel === 'high' ? 'status-ice' : snap.icingLevel === 'mod' ? 'status-warn' : 'status-good'}">
+      <div class="metric-card ${snap.icingLevel === 'high' ? 'status-ice' : snap.icingLevel === 'mod' ? 'status-warn' : 'status-good'}" data-metric="icing">
         <div class="metric-header">
           <span class="metric-label">${copy.icingLabel}</span>
         </div>
         <div class="metric-main">
           <span class="metric-value ${snap.icingLevel === 'high' ? 'ice' : snap.icingLevel === 'mod' ? 'warn' : 'good'}">${icingTitle}</span>
         </div>
-        <div class="metric-sub">${snap.safeIcingZoneText ? `Безпечно: ${snap.safeIcingZoneText}` : icingSub}</div>
+        <div class="metric-sub">Безпечно: <strong class="mono">${snap.safeIcingZoneText || 'всі ешелони'}</strong></div>
       </div>
 
-      <div class="metric-card ${snap.temp2m < -3 ? 'status-ice' : snap.temp2m > 32 ? 'status-warn' : 'status-good'}">
+      <div class="metric-card ${snap.temp2m < -3 ? 'status-ice' : snap.temp2m > 32 ? 'status-warn' : 'status-good'}" data-metric="temp">
         <div class="metric-header">
           <span class="metric-label">${copy.tempLabel}</span>
         </div>
@@ -641,7 +669,7 @@ function renderConditionsTab(raw) {
           <button class="pill-btn ${state.horizon === '72h' ? 'active' : ''}" data-horizon="72h">72г</button>
         </div>
         <span id="scrubber-time-label" class="scrubber-time">
-          ${formatRealDateTime(currentIso, baseIso, state.hourOffset === 0)}
+          ${formatScrubberDateTime(currentIso, baseIso, state.hourOffset === 0)}
         </span>
       </div>
       <div class="scrubber-bar-wrap">
@@ -688,12 +716,10 @@ function renderAltitudesList(raw, currentIdx) {
 
     const effAgl = activeProfile === 'fpv' ? Math.min(lvl.agl, 70) : activeProfile === 'wing' ? Math.max(lvl.agl, 300) : lvl.agl;
     const sev = windSeverity(lvl.wind, effAgl, state.settings, lvl.dir);
-    const iceClass = lvl.icing === 'high' ? 'danger' : lvl.icing === 'mod' ? 'warn' : 'good';
-    const iceText = lvl.icing === 'high' ? 'Лід!' : lvl.icing === 'mod' ? 'Помір.' : 'Норма';
 
     const inCloud = showCloudLine && lvl.agl >= cb.meters;
-    const statusClass = inCloud ? 'danger' : iceClass !== 'good' ? iceClass : sev;
-    const statusText = inCloud ? '☁ Хмари' : iceText !== 'Норма' ? iceText : sev === 'danger' ? 'Вітер!' : sev === 'warn' ? 'Увага' : 'Норма';
+    const statusClass = inCloud ? 'danger' : sev;
+    const statusText = inCloud ? '☁ Хмари' : sev === 'danger' ? 'Вітер!' : sev === 'warn' ? 'Увага' : 'Норма';
 
     const isFpvActive = activeProfile === 'fpv' && lvl.agl <= 70;
     const isWingActive = activeProfile === 'wing' && lvl.agl >= 300 && lvl.agl <= 1000;
@@ -752,7 +778,7 @@ function renderAltitudesTab(raw) {
           <button class="pill-btn ${state.altHorizon === '72h' ? 'active' : ''}" data-althorizon="72h">72г</button>
         </div>
         <span id="alt-scrubber-label" class="scrubber-time">
-          ${formatRealDateTime(currentIso, baseIso, clampedOff === 0)}
+          ${formatScrubberDateTime(currentIso, baseIso, clampedOff === 0)}
         </span>
       </div>
       <div class="scrubber-bar-wrap">
@@ -780,15 +806,13 @@ function renderCellDetailBar(raw, hourIdx, agl) {
   const effAgl = activeProfile === 'fpv' ? Math.min(lvl.agl, 70) : activeProfile === 'wing' ? Math.max(lvl.agl, 300) : lvl.agl;
   const windSev = windSeverity(lvl.wind, effAgl, state.settings, lvl.dir);
 
-  // Gusts severity
-  let gustSev = 'good';
-  if (lvl.agl <= 70 || activeProfile === 'fpv') {
-    const maxG = state.settings.maxFpvGusts ?? 17;
-    gustSev = snap.fpv.gusts >= maxG ? 'danger' : snap.fpv.gusts >= maxG * 0.8 ? 'warn' : 'good';
-  }
+  // Gusts severity (physically consistent: gusts >= wind)
+  const targetGusts = lvl.gusts ?? (lvl.agl <= 10 ? snap.fpv.gusts : Math.max(Math.round(lvl.wind * 1.25 * 10) / 10, snap.fpv.gusts, lvl.wind));
+  const maxG = activeProfile === 'wing' ? (state.settings.maxWingGusts ?? state.settings.maxWingWind * 1.4) : (state.settings.maxFpvGusts ?? 17);
+  const gustSev = targetGusts >= maxG ? 'danger' : targetGusts >= maxG * 0.8 ? 'warn' : 'good';
 
-  // Icing severity
-  const iceSev = lvl.icing === 'high' ? 'danger' : lvl.icing === 'mod' ? 'warn' : 'good';
+  // Icing severity (advisory)
+  const iceSev = lvl.icing === 'high' ? 'ice' : lvl.icing === 'mod' ? 'warn' : 'good';
   const iceText = lvl.icing === 'high' ? copy.icingHigh : lvl.icing === 'mod' ? copy.icingMod : 'Немає';
 
   // Cloud severity
@@ -816,12 +840,10 @@ function renderCellDetailBar(raw, hourIdx, agl) {
           <span>Вітер:</span>
           <strong>${fmtW(lvl.wind)} ${unit} ${windArrowHtml(lvl.dir)} ${degToCompass(lvl.dir)}</strong>
         </div>
-        ${lvl.agl <= 70 || activeProfile === 'fpv' ? `
-          <div class="detail-pill status-${gustSev}">
-            <span>Пориви:</span>
-            <strong>${fmtW(snap.fpv.gusts)} ${unit}</strong>
-          </div>
-        ` : ''}
+        <div class="detail-pill status-${gustSev}">
+          <span>Пориви:</span>
+          <strong>${fmtW(targetGusts)} ${unit}</strong>
+        </div>
         <div class="detail-pill status-${cloudSev}">
           <span>Хмари:</span>
           <strong>${cloudText}</strong>
@@ -1324,7 +1346,7 @@ function bindMainEvents() {
       }
       const lbl = document.getElementById('scrubber-time-label');
       if (lbl) {
-        lbl.textContent = formatRealDateTime(currentIso, baseIso, state.hourOffset === 0);
+        lbl.textContent = formatScrubberDateTime(currentIso, baseIso, state.hourOffset === 0);
       }
     });
   }
@@ -1370,7 +1392,7 @@ function bindMainEvents() {
       const baseIso = raw.hourly.time[state.baseHourIdx];
       const currentIdx = Math.min(raw.hourly.time.length - 1, state.baseHourIdx + state.hourOffset);
       const currentIso = raw.hourly.time[currentIdx];
-      const realLabel = formatRealDateTime(currentIso, baseIso, state.hourOffset === 0);
+      const realLabel = formatScrubberDateTime(currentIso, baseIso, state.hourOffset === 0);
 
       const lbl = document.getElementById('alt-scrubber-label');
       const listBox = document.getElementById('alt-list-box');
@@ -1615,8 +1637,197 @@ function selectLocation(loc) {
   loadWeather(false);
 }
 
+function openMetricModal(metricKey) {
+  const raw = getActiveRaw();
+  if (!raw) return;
+  const currentIdx = Math.min(raw.hourly.time.length - 1, state.baseHourIdx + state.hourOffset);
+  const snap = buildHourSnapshot(raw, currentIdx, state.settings, state.kpIndex);
+  const unit = windUnitLabel();
+  const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
+  const modal = document.getElementById('modal-metric-detail');
+  const titleEl = document.getElementById('modal-metric-title');
+  const bodyEl = document.getElementById('modal-metric-body');
+  if (!modal || !titleEl || !bodyEl) return;
+
+  const profile = state.settings.flightProfile === 'wing' ? 'wing' : 'fpv';
+
+  let title = '';
+  let html = '';
+
+  switch (metricKey) {
+    case 'wind': {
+      title = profile === 'fpv' ? '💨 Вітер для FPV (10–70 м)' : '💨 Вітер для Крил (300–1000 м)';
+      const windVal = profile === 'fpv'
+        ? `${fmtW(snap.fpv.wind10)}–${fmtW(snap.fpv.wind70)} ${unit}`
+        : `${fmtW(snap.wing.min)}–${fmtW(snap.wing.max)} ${unit}`;
+      const windLimit = profile === 'fpv' ? state.settings.maxFpvWind : state.settings.maxWingWind;
+      const windDir = profile === 'fpv' ? snap.fpv.dir : snap.wing.dir;
+      const windStatus = profile === 'fpv' ? snap.fpv.severity : snap.wing.severity;
+      const windStatusText = windStatus === 'danger' ? 'Критичний вітер' : windStatus === 'warn' ? 'Підвищений вітер' : 'Сприятливий вітер';
+
+      html = `
+        <div class="modal-metric-stat ${windStatus}">
+          <div class="stat-main">
+            <span class="stat-val">${windVal}</span>
+            <span class="wind-dir-badge">${windArrowHtml(windDir)} ${degToCompass(windDir)} (${Math.round(windDir)}°)</span>
+          </div>
+          <span class="status-dot-pill ${windStatus}">${windStatusText}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Встановлений ліміт:</span><strong>${fmtW(windLimit)} ${unit}</strong></div>
+          <div class="info-row"><span>Основний ризик:</span><strong>Знесення з курсу, перевитрата батареї</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          ${profile === 'fpv'
+            ? 'Для FPV дронів-камікадзе та скидів на висотах 10–70 м зустрічний або боковий вітер понад 8 м/с різко збільшує споживання струму й ускладнює прицільний пікіруючий захід на ціль. Розраховуйте ємність АКБ із запасом.'
+            : 'Для крил (розвідників) на висотах 300–1000 м швидкість вітру зазвичай у 1.5–2 рази вища, ніж біля поверхні землі. Завжди враховуйте точку неповернення під час польоту проти вітру.'}
+        </p>
+      `;
+      break;
+    }
+
+    case 'gusts': {
+      title = '🌪 Пориви біля землі (10 м)';
+      const maxGusts = state.settings.maxFpvGusts ?? (state.settings.maxFpvWind * 1.4);
+      const gustVal = `${fmtW(snap.fpv.gusts)} ${unit}`;
+      const gustSev = snap.fpv.gusts >= maxGusts ? 'danger' : snap.fpv.gusts >= maxGusts * 0.82 ? 'warn' : 'good';
+      const gustStatusText = gustSev === 'danger' ? 'Небезпечні пориви' : gustSev === 'warn' ? 'Помірні пориви' : 'Спокійно';
+
+      html = `
+        <div class="modal-metric-stat ${gustSev}">
+          <div class="stat-main">
+            <span class="stat-val">${gustVal}</span>
+          </div>
+          <span class="status-dot-pill ${gustSev}">${gustStatusText}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Ліміт поривів:</span><strong>${fmtW(maxGusts)} ${unit}</strong></div>
+          <div class="info-row"><span>Зона впливу:</span><strong>Зліт, посадка та низькі маневри</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          Різкі пориви вітру біля землі несуть пряму загрозу перекидання дрона на старті та посадці. Вони спричиняють короткочасний зрив потоку з пропелерів, перевантаження гіроскопів польотного контролера та різкі стрибки амперажу.
+        </p>
+      `;
+      break;
+    }
+
+    case 'cloud-base': {
+      title = '☁ Нижня кромка хмар';
+      const cb = snap.cloudBase;
+      const cbSev = cb.severity;
+      const cbStatusText = cbSev === 'danger' ? 'Хмари надто низько' : cbSev === 'warn' ? 'Хмари в робочій зоні' : 'Висока хмарність';
+
+      html = `
+        <div class="modal-metric-stat ${cbSev}">
+          <div class="stat-main">
+            <span class="stat-val">${cb.meters != null ? '~' + cb.meters + ' м' : 'Вище 2000 м'}</span>
+            <span class="mono" style="font-size:14px;color:var(--text-muted)">(${cb.density}% щільність)</span>
+          </div>
+          <span class="status-dot-pill ${cbSev}">${cbStatusText}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Характер хмарності:</span><strong>${cb.note || cb.label}</strong></div>
+          <div class="info-row"><span>Мін. допустима висота:</span><strong>${state.settings.minCloudBase ?? 250} м</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          Вхід у хмари призводить до миттєвої втрати візуального контакту та конденсації вологи на об’єктиві камери. При мінусовій температурі всередині хмари пропелери та крила обмерзають протягом кількох десятків секунд.
+        </p>
+      `;
+      break;
+    }
+
+    case 'rain': {
+      title = '🌧 Опади та дощ';
+      const maxRain = state.settings.maxRainProb ?? 65;
+      const precipSev = snap.precipMm >= 1 || snap.precipProb >= maxRain ? 'danger' : snap.precipMm >= 0.2 || snap.precipProb >= Math.max(20, maxRain * 0.55) ? 'warn' : 'good';
+      const precipStatusText = precipSev === 'danger' ? 'Інтенсивні опади' : precipSev === 'warn' ? 'Ймовірний дощ/мряка' : 'Без опадів';
+
+      html = `
+        <div class="modal-metric-stat ${precipSev}">
+          <div class="stat-main">
+            <span class="stat-val">${snap.precipMm.toFixed(1)} мм</span>
+            <span class="mono" style="font-size:14px;color:var(--text-muted)">(${Math.round(snap.precipProb)}% ймовірність)</span>
+          </div>
+          <span class="status-dot-pill ${precipSev}">${precipStatusText}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Кількість опадів:</span><strong>${snap.precipMm > 0 ? snap.precipMm + ' мм/год' : '0.0 мм'}</strong></div>
+          <div class="info-row"><span>Ліміт ймовірності:</span><strong>${maxRain}%</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          Волога може спричинити коротке замикання негерметизованих плат контролера (FC), відеопередавача (VTX) та регуляторів швидкості (ESC). Дощ також послаблює радіосигнал керування та відеолінку.
+        </p>
+      `;
+      break;
+    }
+
+    case 'icing': {
+      title = '❄ Ризик обмерзання (факультативно)';
+      const iceTitle = snap.icingLevel === 'high' ? 'Високий ризик' : snap.icingLevel === 'mod' ? 'Помірний ризик' : 'Немає ризику';
+      const iceClass = snap.icingLevel === 'high' ? 'ice' : snap.icingLevel === 'mod' ? 'warn' : 'good';
+
+      html = `
+        <div class="modal-metric-stat ${iceClass}">
+          <div class="stat-main">
+            <span class="stat-val">${iceTitle}</span>
+          </div>
+          <span class="status-dot-pill ${iceClass}">${snap.icingLevel !== 'none' ? 'Зона уваги' : 'Безпечно'}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Безпечний коридор:</span><strong class="mono" style="color:var(--good)">${snap.safeIcingZoneText || 'всі ешелони'}</strong></div>
+          ${snap.icingZoneText ? `<div class="info-row"><span>Зона ризику:</span><strong class="mono" style="color:var(--ice)">${snap.icingZoneText}</strong></div>` : ''}
+          <div class="info-row"><span>Вплив на дозвіл:</span><strong>Факультативний (не блокує загальний статус)</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          Обмерзання є факультативною характеристикою атмосфери. Якщо місія виконується у безпечному ешелоні (${snap.safeIcingZoneText || 'низькі висоти'}), політ залишається цілком можливим. Ризик виникає у переохолодженому повітрі (&le; 0°C) при вході в хмари чи туман.
+        </p>
+      `;
+      break;
+    }
+
+    case 'temp': {
+      title = '🌡 Температура повітря та точка роси';
+      const tempVal = `${snap.temp2m >= 0 ? '+' : ''}${snap.temp2m.toFixed(1)}°C`;
+      const dewVal = `${snap.dew2m >= 0 ? '+' : ''}${snap.dew2m.toFixed(1)}°C`;
+      const tempClass = snap.temp2m < -3 ? 'ice' : snap.temp2m > 32 ? 'warn' : 'good';
+      const tempStatusText = snap.temp2m < -3 ? 'Мороз' : snap.temp2m > 32 ? 'Спека' : 'Норма';
+
+      html = `
+        <div class="modal-metric-stat ${tempClass}">
+          <div class="stat-main">
+            <span class="stat-val">${tempVal}</span>
+            <span class="mono" style="font-size:14px;color:var(--text-muted)">(Роса: ${dewVal})</span>
+          </div>
+          <span class="status-dot-pill ${tempClass}">${tempStatusText}</span>
+        </div>
+        <div class="modal-metric-info-block">
+          <div class="info-row"><span>Точка роси (конденсація):</span><strong>${dewVal}</strong></div>
+          <div class="info-row"><span>Різниця Temp - Dew:</span><strong>${Math.abs(snap.temp2m - snap.dew2m).toFixed(1)}°C (${Math.abs(snap.temp2m - snap.dew2m) < 2.5 ? 'Високий ризик туману' : 'Низький'})</strong></div>
+        </div>
+        <p class="modal-metric-desc">
+          При температурі нижче 0°C різко падає ефективна ємність акумуляторів LiPo/Li-Ion (до 30% просідання ємності) та зростає ризик різкого падіння напруги при подачі повного газу. Завжди тримайте акумулятори в теплі перед зльотом.
+        </p>
+      `;
+      break;
+    }
+
+    default:
+      return;
+  }
+
+  titleEl.textContent = title;
+  bodyEl.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
 let searchTimer = null;
 function initGlobalEvents() {
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.metric-card[data-metric]');
+    if (card && card.dataset.metric) {
+      openMetricModal(card.dataset.metric);
+    }
+  });
   document.querySelectorAll('button[data-flight-profile]').forEach((btn) => {
     btn.addEventListener('click', () => {
       state.settings.flightProfile = btn.dataset.flightProfile;
