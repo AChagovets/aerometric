@@ -16,11 +16,18 @@ import {
 } from './physics.js';
 import { fetchAllModels, fetchKpIndex, searchUkraineCities } from './api.js';
 
-const STORAGE_KEY = 'aerometric_ua_state_v3';
+const STORAGE_KEY = 'aerometric_ua_state_v4';
+
+const POKROVSK = PRESETS_DONETSK.find((c) => c.name === 'Покровськ') || {
+  name: 'Покровськ',
+  region: 'Донецька обл.',
+  lat: 48.282,
+  lon: 37.176,
+};
 
 const DEFAULT_SETTINGS = {
-  flightProfile: 'all', // 'fpv' | 'wing' | 'all'
-  theme: 'light', // 'light' | 'dark' | 'auto'
+  flightProfile: 'fpv', // 'fpv' | 'wing' (default is FPV)
+  theme: 'auto', // 'light' | 'dark' | 'auto' (default is auto)
   extendedMode: false,
   militaryMode: false,
   windUnit: 'ms', // 'ms' | 'kmh'
@@ -39,8 +46,8 @@ const DEFAULT_SETTINGS = {
 };
 
 const state = {
-  defaultLocation: { ...PRESETS_DONETSK[0] },
-  location: { ...PRESETS_DONETSK[0] },
+  defaultLocation: { ...POKROVSK },
+  location: { ...POKROVSK },
   activeTab: 'conditions', // 'conditions' | 'altitudes' | 'week' | 'settings'
   activeModel: 'icon', // 'icon' | 'ecmwf' | 'gfs'
   horizon: '24h', // '24h' | '48h' | '72h' | '7d'
@@ -237,16 +244,10 @@ async function loadWeather(force = false) {
 }
 
 function updateHeader() {
-  const locName = document.getElementById('loc-name');
-  const locSub = document.getElementById('loc-sub');
-  const raw = getActiveRaw();
-  const star = isSameLocation(state.location, state.defaultLocation) ? ' ★' : '';
-  const displayName = formatCityDisplay(state.location.name, state.settings.militaryMode);
-  if (locName) locName.textContent = `${displayName}${star}`;
-  if (locSub) {
-    const elev = raw?.elevation != null ? ` • ${Math.round(raw.elevation)} м MSL` : '';
-    locSub.textContent = `${state.location.region}${elev}`;
-  }
+  const p = state.settings.flightProfile === 'wing' ? 'wing' : 'fpv';
+  document.querySelectorAll('button[data-flight-profile]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.flightProfile === p);
+  });
 }
 
 // =========================================================
@@ -254,12 +255,11 @@ function updateHeader() {
 // =========================================================
 
 function renderProfileSwitcher() {
-  const p = state.settings.flightProfile || 'all';
+  const p = state.settings.flightProfile === 'wing' ? 'wing' : 'fpv';
   return `
-    <div class="horizon-pills">
-      <button class="pill-btn ${p === 'fpv' ? 'active' : ''}" data-flight-profile="fpv">FPV (до 70 м)</button>
-      <button class="pill-btn ${p === 'wing' ? 'active' : ''}" data-flight-profile="wing">Крила (300–1000 м)</button>
-      <button class="pill-btn ${p === 'all' ? 'active' : ''}" data-flight-profile="all">Загальний</button>
+    <div class="top-profile-wrap">
+      <button class="top-profile-btn ${p === 'fpv' ? 'active' : ''}" data-flight-profile="fpv">FPV (до 70 м)</button>
+      <button class="top-profile-btn ${p === 'wing' ? 'active' : ''}" data-flight-profile="wing">Крила (300–1000 м)</button>
     </div>
   `;
 }
@@ -469,12 +469,12 @@ function renderConditionsCore(raw, hourIdx) {
     `
     : '';
 
-  const profile = state.settings.flightProfile || 'all';
+  const profile = state.settings.flightProfile === 'wing' ? 'wing' : 'fpv';
 
   let windCardsHtml = '';
   if (profile === 'fpv') {
     windCardsHtml = `
-      <div class="metric-card fpv-card ${fpvSev !== 'good' ? 'status-' + fpvSev : ''}">
+      <div class="metric-card fpv-card status-${fpvSev}">
         <div class="metric-header">
           <span class="metric-label">${copy.fpvLabel}</span>
           <span class="corridor-tag fpv">10–70 м</span>
@@ -486,7 +486,7 @@ function renderConditionsCore(raw, hourIdx) {
         ${alignHtml || `<div class="metric-sub">Стабільний вітер (робоча висота FPV)</div>`}
       </div>
 
-      <div class="metric-card fpv-card ${gustSev !== 'good' ? 'status-' + gustSev : ''}">
+      <div class="metric-card fpv-card status-${gustSev}">
         <div class="metric-header">
           <span class="metric-label">Пориви біля землі</span>
           <span class="corridor-tag fpv">10 м</span>
@@ -494,12 +494,12 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-main">
           <span class="metric-value ${gustSev}" style="font-size:22px">${fmtW(snap.fpv.gusts)} <small style="font-size:13px">${unit}</small></span>
         </div>
-        <div class="metric-sub">Ліміт поривів: <strong class="mono">${fmtW(maxGusts)} ${unit}</strong></div>
+        <div class="metric-sub">Ліміт поривів: <strong class="mono">${fmtW(maxGusts)}&nbsp;${unit}</strong></div>
       </div>
     `;
-  } else if (profile === 'wing') {
+  } else {
     windCardsHtml = `
-      <div class="metric-card wing-card ${wingSev !== 'good' ? 'status-' + wingSev : ''}">
+      <div class="metric-card wing-card status-${wingSev}">
         <div class="metric-header">
           <span class="metric-label">${copy.wingLabel}</span>
           <span class="corridor-tag wing">300–1000 м</span>
@@ -508,10 +508,10 @@ function renderConditionsCore(raw, hourIdx) {
           <span class="metric-value ${wingSev}" style="font-size:20px">${fmtW(snap.wing.min)}–${fmtW(snap.wing.max)} <small style="font-size:12px">${unit}</small></span>
           <span class="wind-dir-badge">${windArrowHtml(snap.wing.dir)} ${degToCompass(snap.wing.dir)}</span>
         </div>
-        <div class="metric-sub">Робочий ешелон Крил (ліміт ${fmtW(state.settings.maxWingWind)} ${unit})</div>
+        <div class="metric-sub">Робочий ешелон Крил (ліміт ${fmtW(state.settings.maxWingWind)}&nbsp;${unit})</div>
       </div>
 
-      <div class="metric-card">
+      <div class="metric-card status-${fpvCardSev}">
         <div class="metric-header">
           <span class="metric-label">Зліт / Посадка</span>
           <span class="corridor-tag wing">10 м</span>
@@ -521,43 +521,11 @@ function renderConditionsCore(raw, hourIdx) {
             <div class="metric-value" style="font-size:20px">${fmtW(snap.fpv.wind10)} <small style="font-size:12px">${unit}</small></div>
             <div class="wind-dir-badge" style="margin-top:2px">${windArrowHtml(snap.fpv.dir)} ${degToCompass(snap.fpv.dir)}</div>
           </div>
-          <div class="gust-box ${gustSev}">
+          <div class="gust-box status-${gustSev}">
             <span class="gust-label">Пориви</span>
-            <span class="gust-val">${fmtW(snap.fpv.gusts)} ${unit}</span>
+            <span class="gust-val">${fmtW(snap.fpv.gusts)}&nbsp;${unit}</span>
           </div>
         </div>
-      </div>
-    `;
-  } else {
-    windCardsHtml = `
-      <div class="metric-card fpv-card ${fpvCardSev !== 'good' ? 'status-' + fpvCardSev : ''}">
-        <div class="metric-header">
-          <span class="metric-label">${copy.fpvLabel}</span>
-          <span class="corridor-tag fpv">до 70 м</span>
-        </div>
-        <div class="wind-split-row">
-          <div>
-            <div class="metric-value ${fpvSev}" style="font-size:20px">${fmtW(snap.fpv.wind10)}–${fmtW(snap.fpv.wind70)} <small style="font-size:12px">${unit}</small></div>
-            <div class="wind-dir-badge" style="margin-top:2px">${windArrowHtml(snap.fpv.dir)} ${degToCompass(snap.fpv.dir)} • стаб.</div>
-          </div>
-          <div class="gust-box ${gustSev}">
-            <span class="gust-label">Пориви</span>
-            <span class="gust-val">${fmtW(snap.fpv.gusts)} ${unit}</span>
-          </div>
-        </div>
-        ${alignHtml}
-      </div>
-
-      <div class="metric-card wing-card ${wingSev !== 'good' ? 'status-' + wingSev : ''}">
-        <div class="metric-header">
-          <span class="metric-label">${copy.wingLabel}</span>
-          <span class="corridor-tag wing">300–1000 м</span>
-        </div>
-        <div class="metric-main">
-          <span class="metric-value ${wingSev}" style="font-size:20px">${fmtW(snap.wing.min)}–${fmtW(snap.wing.max)} <small style="font-size:12px">${unit}</small></span>
-          <span class="wind-dir-badge">${windArrowHtml(snap.wing.dir)} ${degToCompass(snap.wing.dir)}</span>
-        </div>
-        <div class="metric-sub">Робочий ешелон Крил (AGL)</div>
       </div>
     `;
   }
@@ -568,22 +536,28 @@ function renderConditionsCore(raw, hourIdx) {
       ? `<span class="fog-info-pill">${snap.fog.label}</span>`
       : '';
 
-  return `
-    ${renderProfileSwitcher()}
-    ${renderModelStrip(hourIdx)}
+  const tryzub = isSameLocation(state.location, state.defaultLocation) ? ' 🔱' : '';
 
-    <section class="verdict-card ${snap.status}">
-      <div class="verdict-top">
-        <div class="verdict-title ${isLongVerdict ? 'long-quote' : ''}">${snap.verdictTitle}</div>
+  return `
+    <section class="verdict-card ${snap.status} expanded-verdict">
+      <div class="verdict-header-row">
+        <div class="verdict-loc-pill">
+          <span class="loc-pin-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </span>
+          <span>${formatCityDisplay(state.location.name, state.settings.militaryMode)}${tryzub}</span>
+          <span class="loc-elev">${raw.elevation != null ? '• ' + Math.round(raw.elevation) + ' м MSL' : ''}</span>
+        </div>
         <span class="verdict-time-pill">${timeBadge}</span>
       </div>
+      <div class="verdict-title ${isLongVerdict ? 'long-quote' : ''}">${snap.verdictTitle}</div>
       <div class="verdict-reason">${snap.verdictReason}</div>
     </section>
 
     <section class="metrics-grid">
       ${windCardsHtml}
 
-      <div class="metric-card ${cbSev !== 'good' ? 'status-' + cbSev : ''}">
+      <div class="metric-card status-${cbSev}">
         <div class="metric-header">
           <span class="metric-label">${copy.cloudBaseLabel}</span>
         </div>
@@ -600,7 +574,7 @@ function renderConditionsCore(raw, hourIdx) {
         </div>
       </div>
 
-      <div class="metric-card ${precipSev !== 'good' ? 'status-' + precipSev : ''}">
+      <div class="metric-card status-${precipSev}">
         <div class="metric-header">
           <span class="metric-label">${copy.precipLabel}</span>
         </div>
@@ -610,7 +584,7 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-sub">Вірогідність: <strong class="mono">${Math.round(snap.precipProb)}%</strong></div>
       </div>
 
-      <div class="metric-card ${snap.icingLevel === 'high' ? 'status-ice' : snap.icingLevel === 'mod' ? 'status-warn' : ''}">
+      <div class="metric-card ${snap.icingLevel === 'high' ? 'status-ice' : snap.icingLevel === 'mod' ? 'status-warn' : 'status-good'}">
         <div class="metric-header">
           <span class="metric-label">${copy.icingLabel}</span>
         </div>
@@ -621,7 +595,7 @@ function renderConditionsCore(raw, hourIdx) {
         ${safePillHtml}
       </div>
 
-      <div class="metric-card">
+      <div class="metric-card ${snap.temp2m < -3 ? 'status-ice' : snap.temp2m > 32 ? 'status-warn' : 'status-good'}">
         <div class="metric-header">
           <span class="metric-label">${copy.tempLabel}</span>
         </div>
@@ -639,7 +613,7 @@ function renderConditionsCore(raw, hourIdx) {
 function renderConditionsTab(raw) {
   const maxAvailable = raw.hourly.time.length - 1 - state.baseHourIdx;
   const horizonHours =
-    state.horizon === '24h' ? 24 : state.horizon === '48h' ? 48 : state.horizon === '72h' ? 72 : 24;
+    state.horizon === '24h' ? 24 : state.horizon === '48h' ? 48 : 72;
   const sliderMax = Math.min(horizonHours, Math.max(0, maxAvailable));
   if (state.hourOffset > sliderMax) state.hourOffset = sliderMax;
 
@@ -656,44 +630,18 @@ function renderConditionsTab(raw) {
     stripHtml += `<span class="status-seg ${st}"></span>`;
   }
 
-  let bottomBlock = '';
-  if (state.horizon === '7d') {
-    const days = buildDailySummaries(raw);
-    const unit = windUnitLabel();
-    const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
-    bottomBlock = `
-      <div class="section-head">
-        <span class="section-label">Орієнтовний прогноз на тиждень</span>
-        <button class="info-link" id="btn-goto-matrix">Матриця висот →</button>
-      </div>
-      <div class="week-summary-list">
-        ${days
-          .map(
-            (d, i) => `
-          <div class="week-day-row" data-open-day="${i}">
-            <div>
-              <div class="wd-day">${d.weekday}</div>
-              <div class="wd-date">${d.dateLabel}</div>
-            </div>
-            <div class="wd-mid">
-              <span>FPV до <strong>${fmtW(d.fpvMax)} ${unit}</strong></span>
-              <span>Крила до <strong>${fmtW(d.wingMax)} ${unit}</strong></span>
-              <span><strong>${Math.round(d.tempMin)}..${Math.round(d.tempMax)}°C</strong></span>
-              <span>Опади <strong>${Math.round(d.rainProb)}%</strong></span>
-              ${d.icing !== 'none' ? `<span style="color:var(--ice);font-weight:600">❄ Лід</span>` : ''}
-              ${d.hasLowCloudCrit ? `<span style="color:var(--danger);font-weight:600">☁ &lt;${state.settings.minWingCloudBase}м</span>` : ''}
-            </div>
-            <span class="status-dot-pill ${d.dayStatus}">${d.dayLabel}</span>
-          </div>
-        `
-          )
-          .join('')}
-      </div>
-    `;
-  } else {
-    bottomBlock = `
-      <div class="scrubber-header">
-        <span>Обраний час</span>
+  return `
+    <div id="conditions-dynamic" class="conditions-content">
+      ${renderConditionsCore(raw, currentIdx)}
+    </div>
+
+    <section class="scrubber-card sticky-scrubber">
+      <div class="scrubber-top-row">
+        <div class="horizon-pills">
+          <button class="pill-btn ${state.horizon === '24h' ? 'active' : ''}" data-horizon="24h">24г</button>
+          <button class="pill-btn ${state.horizon === '48h' ? 'active' : ''}" data-horizon="48h">48г</button>
+          <button class="pill-btn ${state.horizon === '72h' ? 'active' : ''}" data-horizon="72h">72г</button>
+        </div>
         <span id="scrubber-time-label" class="scrubber-time">
           ${formatRealDateTime(currentIso, baseIso, state.hourOffset === 0)}
         </span>
@@ -703,20 +651,35 @@ function renderConditionsTab(raw) {
         <input id="time-slider" class="time-slider" type="range" min="0" max="${sliderMax}" value="${state.hourOffset}" step="1" />
         <div class="scrubber-ticks">${buildSliderTicks(raw, state.baseHourIdx, sliderMax)}</div>
       </div>
-    `;
-  }
-
+    </section>
+  `;
+}
+    const days = buildDailySummaries(raw);
+    const unit = windUnitLabel();
+    const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
   return `
-    <div id="conditions-dynamic" style="display:flex;flex-direction:column;gap:16px;">
+    <div id="conditions-dynamic" style="display:flex;flex-direction:column;gap:14px;padding-bottom:130px;">
       ${renderConditionsCore(raw, currentIdx)}
     </div>
 
-    <section class="scrubber-card">
-      <div class="horizon-pills">
-        <button class="pill-btn ${state.horizon === '24h' ? 'active' : ''}" data-horizon="24h">24г</button>
-        <button class="pill-btn ${state.horizon === '48h' ? 'active' : ''}" data-horizon="48h">48г</button>
-        <button class="pill-btn ${state.horizon === '72h' ? 'active' : ''}" data-horizon="72h">72г</button>
-        <button class="pill-btn ${state.horizon === '7d' ? 'active' : ''}" data-horizon="7d">Тиждень</button>
+    <section class="scrubber-card sticky-scrubber">
+      <div class="scrubber-top-row">
+        <div class="horizon-pills">
+          <button class="pill-btn ${state.horizon === '24h' ? 'active' : ''}" data-horizon="24h">24г</button>
+          <button class="pill-btn ${state.horizon === '48h' ? 'active' : ''}" data-horizon="48h">48г</button>
+          <button class="pill-btn ${state.horizon === '72h' ? 'active' : ''}" data-horizon="72h">72г</button>
+        </div>
+        <span id="scrubber-time-label" class="scrubber-time">
+          ${formatRealDateTime(currentIso, baseIso, state.hourOffset === 0)}
+        </span>
+      </div>
+      <div class="scrubber-bar-wrap">
+        <div class="status-strip">${stripHtml}</div>
+        <input id="time-slider" class="time-slider" type="range" min="0" max="${sliderMax}" value="${state.hourOffset}" step="1" />
+        <div class="scrubber-ticks">${buildSliderTicks(raw, state.baseHourIdx, sliderMax)}</div>
+      </div>
+    </section>
+  `;
       </div>
       ${bottomBlock}
     </section>
@@ -1117,32 +1080,43 @@ function renderSettingsTab() {
   ];
 
   return `
-    <div class="section-label">Робочий режим польотів</div>
-    <section class="settings-group">
-      <div class="setting-row slider-setting">
-        <div class="setting-info">
-          <div class="setting-title">Профіль БПЛА</div>
-          <div class="setting-desc">У режимі <strong>FPV</strong> вердикт і обмерзання рахуються лише до 70 м; у режимі <strong>Крила</strong> — по ешелону 300–1000 м; у <strong>Загальному</strong> — обидва.</div>
-        </div>
-        ${renderProfileSwitcher()}
-      </div>
-    </section>
-
-    <div class="section-label">Локація</div>
+    <div class="section-label">Локація польотів</div>
     <section class="settings-group">
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-title">Населений пункт за замовчуванням</div>
-          <div class="setting-desc">★ <strong>${state.defaultLocation.name}</strong> (${state.defaultLocation.region}) — відкривається автоматично при запуску.</div>
+          <div class="setting-title">${formatCityDisplay(state.location.name, state.settings.militaryMode)}${isSameLocation(state.location, state.defaultLocation) ? ' 🔱' : ''}</div>
+          <div class="setting-desc">${state.location.region || ''} • ${state.modelsData?.icon?.elevation != null ? Math.round(state.modelsData.icon.elevation) + ' м MSL' : ''} • За замовчуванням: <strong>${state.defaultLocation.name}</strong> 🔱</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           ${
             viewingDifferent
-              ? `<button class="btn-default-loc" id="btn-set-cur-default">Закріпити ${state.location.name}</button>`
+              ? `<button class="btn-default-loc" id="btn-set-cur-default">🔱 Закріпити</button>`
               : ''
           }
-          <button class="btn-secondary" id="btn-open-loc-settings" style="padding:7px 11px;font-size:12px;">Змінити</button>
+          <button class="btn-secondary" id="btn-open-loc-settings" style="padding:7px 12px;font-size:12px;">Змінити місто</button>
         </div>
+      </div>
+    </section>
+
+    <div class="section-label">Погодна модель</div>
+    <section class="settings-group" style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+      <div class="section-head" style="margin-bottom:2px;">
+        <span class="setting-title" style="font-size:13px">Активна модель для аналізу</span>
+        <button class="info-link" id="btn-models-info">? Про моделі</button>
+      </div>
+      <div class="model-strip">
+        ${MODELS.map((m) => {
+          const isActive = state.activeModel === m.id;
+          return `
+            <button class="model-card ${isActive ? 'active' : ''}" data-model="${m.id}">
+              <div class="model-top">
+                <span class="model-name">${m.name}</span>
+                <span class="model-badge">${m.badge}</span>
+              </div>
+              <div class="model-meta">${m.shortDesc}</div>
+            </button>
+          `;
+        }).join('')}
       </div>
     </section>
 
@@ -1505,6 +1479,18 @@ function bindMainEvents() {
 
   document.getElementById('btn-open-loc-settings')?.addEventListener('click', openLocationModal);
 
+  document.querySelectorAll('section button[data-model]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.activeModel = btn.dataset.model;
+      saveState();
+      render();
+    });
+  });
+
+  document.getElementById('btn-models-info')?.addEventListener('click', () => {
+    document.getElementById('modal-models-guide')?.classList.remove('hidden');
+  });
+
   document.querySelectorAll('.dir-pill-btn[data-fav-dir]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const val = btn.dataset.favDir;
@@ -1632,10 +1618,10 @@ function renderLocationPresets() {
     banner.innerHTML = `
       <div>
         <div style="font-weight:600">Поточна: ${state.location.name}</div>
-        <div style="color:var(--text-muted);font-size:11px">За замовчуванням: ★ ${state.defaultLocation.name}</div>
+        <div style="color:var(--text-muted);font-size:11px">За замовчуванням: 🔱 ${state.defaultLocation.name}</div>
       </div>
       <button id="btn-make-default" class="btn-default-loc ${isDef ? 'is-default' : ''}" ${isDef ? 'disabled' : ''}>
-        ${isDef ? '★ За замовчуванням' : '☆ Зробити за замовч.'}
+        ${isDef ? '🔱 За замовчуванням' : '🔱 Зробити за замовч.'}
       </button>
     `;
     document.getElementById('btn-make-default')?.addEventListener('click', () => {
@@ -1654,7 +1640,7 @@ function renderLocationPresets() {
       .map((c) => {
         const isDef = isSameLocation(c, state.defaultLocation);
         const isCur = isSameLocation(c, state.location);
-        return `<button class="chip-btn ${isCur ? 'active' : ''}" data-lat="${c.lat}" data-lon="${c.lon}" data-name="${c.name}" data-region="${c.region}">${isDef ? '★ ' : ''}${c.name}</button>`;
+        return `<button class="chip-btn ${isCur ? 'active' : ''}" data-lat="${c.lat}" data-lon="${c.lon}" data-name="${c.name}" data-region="${c.region}">${isDef ? '🔱 ' : ''}${c.name}</button>`;
       })
       .join('');
 
@@ -1682,6 +1668,15 @@ function selectLocation(loc) {
 
 let searchTimer = null;
 function initGlobalEvents() {
+  document.querySelectorAll('button[data-flight-profile]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.settings.flightProfile = btn.dataset.flightProfile;
+      saveState();
+      updateHeader();
+      render();
+    });
+  });
+
   document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.addEventListener('click', () => {
       state.activeTab = btn.dataset.tab;
