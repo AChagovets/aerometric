@@ -1169,7 +1169,7 @@ function renderSettingsTab() {
       <div class="setting-row slider-setting">
         <div class="slider-top">
           <span class="setting-title">Макс. вітер FPV (зустрічний / боковий)</span>
-          <span id="val-max-fpv" class="mono" style="font-weight:700">${fmtW(s.maxFpvWind)} ${unit}</span>
+          <span id="val-max-fpv" class="mono slider-val">${fmtW(s.maxFpvWind)}&nbsp;${unit}</span>
         </div>
         <input type="range" id="slider-max-fpv" class="time-slider" min="5" max="20" step="1" value="${s.maxFpvWind}" />
       </div>
@@ -1180,7 +1180,7 @@ function renderSettingsTab() {
         <div class="setting-row slider-setting">
           <div class="slider-top">
             <span class="setting-title">Макс. вітер FPV (попутний на ${degToCompass(s.fpvFavBlowToDeg)})</span>
-            <span id="val-max-fpv-tail" class="mono" style="font-weight:700">${fmtW(s.maxFpvWindTailwind)} ${unit}</span>
+            <span id="val-max-fpv-tail" class="mono slider-val">${fmtW(s.maxFpvWindTailwind)}&nbsp;${unit}</span>
           </div>
           <input type="range" id="slider-max-fpv-tail" class="time-slider" min="8" max="25" step="1" value="${s.maxFpvWindTailwind}" />
         </div>
@@ -1191,7 +1191,7 @@ function renderSettingsTab() {
       <div class="setting-row slider-setting">
         <div class="slider-top">
           <span class="setting-title">Макс. пориви FPV (біля землі)</span>
-          <span id="val-max-fpv-gusts" class="mono" style="font-weight:700">${fmtW(s.maxFpvGusts)} ${unit}</span>
+          <span id="val-max-fpv-gusts" class="mono slider-val">${fmtW(s.maxFpvGusts)}&nbsp;${unit}</span>
         </div>
         <input type="range" id="slider-max-fpv-gusts" class="time-slider" min="8" max="28" step="1" value="${s.maxFpvGusts}" />
       </div>
@@ -1202,7 +1202,7 @@ function renderSettingsTab() {
       <div class="setting-row slider-setting">
         <div class="slider-top">
           <span class="setting-title">Макс. вітер Крила (будь-який напрямок)</span>
-          <span id="val-max-wing" class="mono" style="font-weight:700">${fmtW(s.maxWingWind)} ${unit}</span>
+          <span id="val-max-wing" class="mono slider-val">${fmtW(s.maxWingWind)}&nbsp;${unit}</span>
         </div>
         <input type="range" id="slider-max-wing" class="time-slider" min="8" max="28" step="1" value="${s.maxWingWind}" />
       </div>
@@ -1210,7 +1210,7 @@ function renderSettingsTab() {
       <div class="setting-row slider-setting">
         <div class="slider-top">
           <span class="setting-title">Мін. нижня кромка хмар (ВНМХ)</span>
-          <span id="val-min-cb" class="mono" style="font-weight:700">${s.minWingCloudBase} м</span>
+          <span id="val-min-cb" class="mono slider-val">${s.minWingCloudBase}&nbsp;м</span>
         </div>
         <input type="range" id="slider-min-cb" class="time-slider" min="150" max="600" step="50" value="${s.minWingCloudBase}" />
       </div>
