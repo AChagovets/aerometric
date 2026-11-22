@@ -483,7 +483,7 @@ function renderConditionsCore(raw, hourIdx) {
           <span class="metric-value ${fpvSev}" style="font-size:20px">${fmtW(snap.fpv.wind10)}–${fmtW(snap.fpv.wind70)} <small style="font-size:12px">${unit}</small></span>
           <span class="wind-dir-badge">${windArrowHtml(snap.fpv.dir)} ${degToCompass(snap.fpv.dir)}</span>
         </div>
-        ${alignHtml || `<div class="metric-sub">Стабільний вітер (робоча висота FPV)</div>`}
+        <div class="metric-sub">${alignHtml || `Стабільний вітер (10–70 м)`}</div>
       </div>
 
       <div class="metric-card fpv-card status-${gustSev}">
@@ -560,17 +560,16 @@ function renderConditionsCore(raw, hourIdx) {
       <div class="metric-card status-${cbSev}">
         <div class="metric-header">
           <span class="metric-label">${copy.cloudBaseLabel}</span>
+          <span class="mono" style="font-size:11px;font-weight:700;color:var(--text-muted)">${snap.cloudBase.density}%</span>
         </div>
         <div class="metric-main">
           <span class="metric-value ${cbSev}">${snap.cloudBase.label}</span>
-          <span class="mono" style="font-size:12px;font-weight:700;color:var(--text-muted)">${snap.cloudBase.density}%</span>
         </div>
         <div class="cloud-density-wrap">
           <div class="cloud-density-bar">
             <div class="cloud-density-fill ${cbSev}" style="width:${Math.min(100, snap.cloudBase.density)}%"></div>
           </div>
           <div class="metric-sub">${snap.cloudBase.note}</div>
-          ${fogPillHtml}
         </div>
       </div>
 
@@ -579,7 +578,7 @@ function renderConditionsCore(raw, hourIdx) {
           <span class="metric-label">${copy.precipLabel}</span>
         </div>
         <div class="metric-main">
-          <span class="metric-value ${precipSev}">${snap.precipMm.toFixed(1)} <small style="font-size:13px">мм</small></span>
+          <span class="metric-value ${precipSev}">${snap.precipMm.toFixed(1)} <small style="font-size:12px">мм</small></span>
         </div>
         <div class="metric-sub">Вірогідність: <strong class="mono">${Math.round(snap.precipProb)}%</strong></div>
       </div>
@@ -591,8 +590,7 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-main">
           <span class="metric-value ${snap.icingLevel === 'high' ? 'ice' : snap.icingLevel === 'mod' ? 'warn' : 'good'}">${icingTitle}</span>
         </div>
-        <div class="metric-sub">${icingSub}</div>
-        ${safePillHtml}
+        <div class="metric-sub">${snap.safeIcingZoneText ? `Безпечно: ${snap.safeIcingZoneText}` : icingSub}</div>
       </div>
 
       <div class="metric-card ${snap.temp2m < -3 ? 'status-ice' : snap.temp2m > 32 ? 'status-warn' : 'status-good'}">
@@ -664,63 +662,56 @@ function renderAltitudesList(raw, currentIdx) {
   const copy = getCopy(state.settings.militaryMode);
   const unit = windUnitLabel();
   const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
-  const isMsl = state.settings.altRef === 'msl';
+  const activeProfile = state.settings.flightProfile || 'fpv';
 
   const cb = snap.cloudBase;
   const densityThresh = state.settings.cloudDensityThreshold ?? 50;
   const showCloudLine = cb.meters != null && cb.density >= densityThresh && cb.meters <= 1500;
   let insertedCloudLine = false;
-  let insertedFpvHeader = false;
-  let insertedWingHeader = false;
   let rowsHtml = '';
 
   const cloudLineHtml = () => `
-    <div class="alt-cloud-line ${cb.severity}">
-      <span>☁ Нижня кромка хмар (~${cb.meters} м AGL)</span>
-      <span>Щільність ${cb.density}%${cb.severity === 'danger' ? ' • Недопустимо для Крил' : ''}</span>
+    <div class="alt-cloud-line">
+      <span>☁ Нижня кромка хмар (~${cb.meters} м)</span>
+      <span>Щільність ${cb.density}%</span>
     </div>
   `;
 
-  // Levels are already ascending: 10m -> 70m -> 120m -> 300m -> 500m -> 750m -> 1000m -> 1500m
+  // Levels: 10m, 70m, 120m, 300m, 500m, 750m, 1000m, 1500m
   for (let i = 0; i < snap.levels.length; i++) {
     const lvl = snap.levels[i];
 
-    // Insert cloud base divider right BEFORE the first altitude >= cloudBase
     if (showCloudLine && !insertedCloudLine && lvl.agl >= cb.meters) {
       insertedCloudLine = true;
       rowsHtml += cloudLineHtml();
     }
 
-    if (lvl.zone === 'fpv' && !insertedFpvHeader) {
-      insertedFpvHeader = true;
-      rowsHtml += `<div class="alt-zone-divider fpv"><span>Нижній ешелон FPV</span><span>до 70 м AGL</span></div>`;
-    }
-    if (lvl.zone === 'wing' && !insertedWingHeader) {
-      insertedWingHeader = true;
-      rowsHtml += `<div class="alt-zone-divider wing"><span>Ешелон Крил</span><span>300 – 1000 м AGL</span></div>`;
-    }
+    const effAgl = activeProfile === 'fpv' ? Math.min(lvl.agl, 70) : activeProfile === 'wing' ? Math.max(lvl.agl, 300) : lvl.agl;
+    const sev = windSeverity(lvl.wind, effAgl, state.settings, lvl.dir);
+    const iceClass = lvl.icing === 'high' ? 'danger' : lvl.icing === 'mod' ? 'warn' : 'good';
+    const iceText = lvl.icing === 'high' ? 'Лід!' : lvl.icing === 'mod' ? 'Помір.' : 'Норма';
 
-    const sev = windSeverity(lvl.wind, lvl.agl, state.settings, lvl.dir);
-    const iceClass = lvl.icing === 'high' ? 'ice' : lvl.icing === 'mod' ? 'warn' : 'good';
-    const iceText = lvl.icing === 'high' ? copy.icingHigh : lvl.icing === 'mod' ? copy.icingMod : copy.icingNone;
-    const heightLabel = isMsl ? `${lvl.msl} м` : `${lvl.agl} м`;
-    const inCloudTag =
-      showCloudLine && lvl.agl >= cb.meters ? `<span class="alt-in-cloud-tag" title="У хмарах">☁</span>` : '';
+    const inCloud = showCloudLine && lvl.agl >= cb.meters;
+    const statusClass = inCloud ? 'danger' : iceClass !== 'good' ? iceClass : sev;
+    const statusText = inCloud ? '☁ Хмари' : iceText !== 'Норма' ? iceText : sev === 'danger' ? 'Вітер!' : sev === 'warn' ? 'Увага' : 'Норма';
+
+    const isFpvActive = activeProfile === 'fpv' && lvl.agl <= 70;
+    const isWingActive = activeProfile === 'wing' && lvl.agl >= 300 && lvl.agl <= 1000;
+    const activeClass = isFpvActive ? 'zone-fpv-active' : isWingActive ? 'zone-wing-active' : '';
 
     rowsHtml += `
-      <div class="alt-row ${lvl.zone === 'wing' ? 'zone-wing' : lvl.zone === 'fpv' ? 'zone-fpv' : ''}">
-        <div class="alt-height">${heightLabel}${inCloudTag}</div>
+      <div class="alt-row ${activeClass}">
+        <div class="alt-height">${lvl.agl}м</div>
         <div class="alt-wind">
-          <span class="metric-value ${sev}" style="font-size:14px">${fmtW(lvl.wind)} ${unit}</span>
+          <span class="metric-value ${sev}">${fmtW(lvl.wind)} ${unit}</span>
           ${windArrowHtml(lvl.dir)}
-          <span style="font-size:11px;color:var(--text-muted)">${degToCompass(lvl.dir)}</span>
+          <span class="wind-comp">${degToCompass(lvl.dir)}</span>
         </div>
-        <div class="alt-temp">
-          ${lvl.temp >= 0 ? '+' : ''}${lvl.temp.toFixed(1)}°C
-          <span>Td ${lvl.dew >= 0 ? '+' : ''}${lvl.dew.toFixed(1)}° (Δ${lvl.spread != null ? lvl.spread.toFixed(1) : '—'}°)</span>
+        <div class="alt-temp ${lvl.temp <= 0 ? 'ice' : ''}">
+          ${lvl.temp >= 0 ? '+' : ''}${lvl.temp.toFixed(1)}° <span class="dew-val">/ ${lvl.dew >= 0 ? '+' : ''}${lvl.dew.toFixed(1)}°</span>
         </div>
         <div style="text-align:right">
-          <span class="status-dot-pill ${iceClass}">${iceText}</span>
+          <span class="status-dot-pill ${statusClass}">${statusText}</span>
         </div>
       </div>
     `;
@@ -728,10 +719,10 @@ function renderAltitudesList(raw, currentIdx) {
 
   return `
     <div class="alt-head">
-      <span>Висота</span>
+      <span style="text-align:center">Висота</span>
       <span>Вітер</span>
       <span>Темп / Роса</span>
-      <span style="text-align:right">Обмерзання</span>
+      <span style="text-align:right">Статус</span>
     </div>
     ${rowsHtml}
   `;
@@ -747,46 +738,28 @@ function renderAltitudesTab(raw) {
   const currentIdx = Math.min(raw.hourly.time.length - 1, state.baseHourIdx + clampedOff);
   const baseIso = raw.hourly.time[state.baseHourIdx];
   const currentIso = raw.hourly.time[currentIdx];
-  const isMsl = state.settings.altRef === 'msl';
 
   return `
-    <div id="alt-models-wrap">${renderModelStrip(currentIdx)}</div>
-
-    <div class="toolbar-row">
-      <div class="segmented-sm">
-        <button class="${!isMsl ? 'active' : ''}" data-altref="agl">AGL (над землею)</button>
-        <button class="${isMsl ? 'active' : ''}" data-altref="msl">MSL (над морем)</button>
-      </div>
-      <span id="alt-time-pill" class="verdict-time-pill">
-        ${formatRealDateTime(currentIso, baseIso, clampedOff === 0)}
-      </span>
-    </div>
-
-    <div class="scrubber-card" style="padding:12px 14px;gap:10px;">
-      <div class="horizon-pills">
-        <button class="pill-btn ${state.altHorizon === '24h' ? 'active' : ''}" data-althorizon="24h">24г</button>
-        <button class="pill-btn ${state.altHorizon === '48h' ? 'active' : ''}" data-althorizon="48h">48г</button>
-        <button class="pill-btn ${state.altHorizon === '72h' ? 'active' : ''}" data-althorizon="72h">72г</button>
-      </div>
-      <div class="scrubber-header" style="font-size:12px;">
-        <span>Обраний час</span>
-        <span id="alt-scrubber-label" class="scrubber-time">
-          ${formatRealDateTime(currentIso, baseIso, clampedOff === 0)}
-        </span>
-      </div>
-      <input id="alt-time-slider" class="time-slider" type="range" min="0" max="${maxOffset}" value="${clampedOff}" step="1" />
-      <div class="scrubber-ticks">${buildSliderTicks(raw, state.baseHourIdx, maxOffset)}</div>
-    </div>
-
     <section id="alt-list-box" class="alt-list">
       ${renderAltitudesList(raw, currentIdx)}
     </section>
 
-    <div class="legend-row">
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--ice)"></span> Високий лід: -12..+2°C та ΔT ≤ 2°C</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--warn-pill)"></span> Помірний: -15..+3°C та ΔT ≤ 4°C</span>
-      <span class="legend-item">☁ Вище кромки щільних хмар (≥${state.settings.cloudDensityThreshold}%)</span>
-    </div>
+    <section class="scrubber-card sticky-scrubber">
+      <div class="scrubber-top-row">
+        <div class="horizon-pills">
+          <button class="pill-btn ${state.altHorizon === '24h' ? 'active' : ''}" data-althorizon="24h">24г</button>
+          <button class="pill-btn ${state.altHorizon === '48h' ? 'active' : ''}" data-althorizon="48h">48г</button>
+          <button class="pill-btn ${state.altHorizon === '72h' ? 'active' : ''}" data-althorizon="72h">72г</button>
+        </div>
+        <span id="alt-scrubber-label" class="scrubber-time">
+          ${formatRealDateTime(currentIso, baseIso, clampedOff === 0)}
+        </span>
+      </div>
+      <div class="scrubber-bar-wrap">
+        <input id="alt-time-slider" class="time-slider" type="range" min="0" max="${maxOffset}" value="${clampedOff}" step="1" />
+        <div class="scrubber-ticks">${buildSliderTicks(raw, state.baseHourIdx, maxOffset)}</div>
+      </div>
+    </section>
   `;
 }
 
@@ -794,41 +767,79 @@ function renderAltitudesTab(raw) {
 // Tab 3: Week & Altitude × Time Matrix ("Тиждень" with FPV / Крила / Усі!)
 // =========================================================
 
-function renderMatrixLegend(layer, vehicle) {
-  if (layer === 'overall') {
-    const scopeNote =
-      vehicle === 'fpv'
-        ? 'FPV: вітер + напрямок + пориви + лід + опади'
-        : vehicle === 'wing'
-        ? 'Крила: вітер + ВНМХ + лід + опади'
-        : 'вітер / лід / хмари / опади';
-    return `
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--good-pill)"></span> Сприятливо</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--warn-pill)"></span> Помірно-складні</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--danger-pill)"></span> Складні (${scopeNote})</span>
-      <span class="legend-item">❄ Обмерзання</span>
-      <span class="legend-item">☁ У щільних хмарах</span>
-    `;
+function renderCellDetailBar(raw, hourIdx, agl) {
+  const snap = buildHourSnapshot(raw, hourIdx, state.settings, state.kpIndex);
+  const lvl = snap.levels.find((l) => l.agl === agl) || snap.levels[0];
+  const day = formatDayMeta(snap.isoTime);
+  const copy = getCopy(state.settings.militaryMode);
+  const unit = windUnitLabel();
+  const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
+  const activeProfile = state.settings.flightProfile || 'fpv';
+
+  // Wind severity
+  const effAgl = activeProfile === 'fpv' ? Math.min(lvl.agl, 70) : activeProfile === 'wing' ? Math.max(lvl.agl, 300) : lvl.agl;
+  const windSev = windSeverity(lvl.wind, effAgl, state.settings, lvl.dir);
+
+  // Gusts severity
+  let gustSev = 'good';
+  if (lvl.agl <= 70 || activeProfile === 'fpv') {
+    const maxG = state.settings.maxFpvGusts ?? 17;
+    gustSev = snap.fpv.gusts >= maxG ? 'danger' : snap.fpv.gusts >= maxG * 0.8 ? 'warn' : 'good';
   }
-  if (layer === 'wind') {
-    return `
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--good-pill)"></span> Спокійний вітер</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--warn-pill)"></span> Помірний вітер</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--danger-pill)"></span> Сильний вітер</span>
-      <span class="legend-item">❄ Ризик обмерзання</span>
-    `;
-  }
-  if (layer === 'icing') {
-    return `
-      <span class="legend-item"><span class="legend-swatch" style="background:var(--surface-subtle);border:1px solid var(--border-strong)"></span> Чисто (немає)</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#38BDF8"></span> Помірний (-15..+3°C, ΔT ≤ 4°)</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#0284C7"></span> Високий (-12..+2°C, ΔT ≤ 2°)</span>
-    `;
-  }
+
+  // Icing severity
+  const iceSev = lvl.icing === 'high' ? 'danger' : lvl.icing === 'mod' ? 'warn' : 'good';
+  const iceText = lvl.icing === 'high' ? copy.icingHigh : lvl.icing === 'mod' ? copy.icingMod : 'Немає';
+
+  // Cloud severity
+  const densityThresh = state.settings.cloudDensityThreshold ?? 50;
+  const inCloud = snap.cloudBase.meters != null && snap.cloudBase.density >= densityThresh && lvl.agl >= snap.cloudBase.meters;
+  const cloudSev = inCloud ? 'danger' : snap.cloudBase.severity || 'good';
+  const cloudText = inCloud ? `☁ У хмарах (~${snap.cloudBase.meters}м)` : `${snap.cloudBase.label} (${snap.cloudBase.density}%)`;
+
+  // Precip severity
+  const maxRain = state.settings.maxRainProb ?? 65;
+  const precipSev = snap.precipProb >= maxRain || snap.precipMm >= 1 ? 'danger' : snap.precipProb >= 30 ? 'warn' : 'good';
+
+  // Temp severity
+  const tempSev = lvl.temp <= 0 ? 'ice' : lvl.temp <= 3 ? 'warn' : 'good';
+
+  const corridor = lvl.agl <= 70 ? 'FPV (до 70 м)' : lvl.agl >= 300 && lvl.agl <= 1000 ? 'Крила (300–1000 м)' : 'Ешелон';
+
   return `
-    <span class="legend-item"><span class="legend-swatch" style="background:#0284C7"></span> Мороз (≤ 0°C)</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:#38BDF8"></span> Прохолодно (+1..+5°C)</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:var(--good-pill)"></span> Тепло (&gt; +5°C)</span>
+    <div class="cell-detail-bar">
+      <div class="cell-detail-title">
+        ${day.weekday}, ${day.dateLabel} • ${formatHourShort(snap.isoTime)} • ${lvl.agl} м (${corridor})
+      </div>
+      <div class="cell-detail-grid">
+        <div class="detail-pill status-${windSev}">
+          <span>Вітер:</span>
+          <strong>${fmtW(lvl.wind)} ${unit} ${windArrowHtml(lvl.dir)} ${degToCompass(lvl.dir)}</strong>
+        </div>
+        ${lvl.agl <= 70 || activeProfile === 'fpv' ? `
+          <div class="detail-pill status-${gustSev}">
+            <span>Пориви:</span>
+            <strong>${fmtW(snap.fpv.gusts)} ${unit}</strong>
+          </div>
+        ` : ''}
+        <div class="detail-pill status-${cloudSev}">
+          <span>Хмари:</span>
+          <strong>${cloudText}</strong>
+        </div>
+        <div class="detail-pill status-${iceSev}">
+          <span>Лід:</span>
+          <strong>${iceText}</strong>
+        </div>
+        <div class="detail-pill status-${precipSev}">
+          <span>Опади:</span>
+          <strong>${Math.round(snap.precipProb)}% (${snap.precipMm} мм)</strong>
+        </div>
+        <div class="detail-pill status-${tempSev}">
+          <span>Темп:</span>
+          <strong>${lvl.temp >= 0 ? '+' : ''}${lvl.temp.toFixed(1)}°C <small>(Td ${lvl.dew >= 0 ? '+' : ''}${lvl.dew.toFixed(1)}°)</small></strong>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -873,9 +884,8 @@ function renderWeekTab(raw) {
     snap: buildHourSnapshot(raw, c.hourIdx, state.settings, state.kpIndex),
   }));
 
-  // Week tab always shows the full general altitude set (FPV/Wing switcher hidden here per user request)
-  const activeProfile = 'all';
-  const visibleAlts = getVisibleMatrixAltitudes(activeProfile);
+  const activeProfile = state.settings.flightProfile || 'fpv';
+  const visibleAlts = getVisibleMatrixAltitudes('all');
 
   if (
     !state.selectedCell ||
@@ -890,7 +900,6 @@ function renderWeekTab(raw) {
 
   const matrixRows = visibleAlts
     .map((agl) => {
-      const zoneMark = agl === 70 ? ' •' : agl === 500 ? ' ✦' : '';
       const cells = colSnaps
         .map((col) => {
           const lvl = col.snap.levels.find((l) => l.agl === agl);
@@ -933,31 +942,21 @@ function renderWeekTab(raw) {
 
       return `
         <tr>
-          <td class="sticky-col">${agl}м${zoneMark}</td>
+          <td class="sticky-col">${agl}м</td>
           ${cells}
         </tr>
       `;
     })
     .join('');
 
-  const selSnap = buildHourSnapshot(raw, state.selectedCell.hourIdx, state.settings, state.kpIndex);
-  const selLvl = selSnap.levels.find((l) => l.agl === state.selectedCell.agl) || selSnap.levels[0];
-  const selDay = formatDayMeta(selSnap.isoTime);
-  const corridorLabel =
-    selLvl.agl <= 70 ? 'FPV (нижній)' : selLvl.agl >= 300 && selLvl.agl <= 1000 ? 'Крила (верхній)' : 'Ешелон';
-  const selIceText =
-    selLvl.icing === 'high' ? copy.icingHigh : selLvl.icing === 'mod' ? copy.icingMod : copy.icingNone;
-
   const unitHeader =
     state.matrixLayer === 'temp'
-      ? '°C • AGL'
+      ? '°C'
       : state.matrixLayer === 'icing'
-      ? 'Ризик • AGL'
-      : `${unit} • AGL`;
+      ? 'Ризик'
+      : unit;
 
   return `
-    ${renderModelStrip(state.selectedCell.hourIdx)}
-
     <div class="toolbar-row">
       <div class="segmented-sm">
         <button class="${state.weekMode === 'overview' ? 'active' : ''}" data-weekmode="overview">Весь тиждень</button>
@@ -993,7 +992,7 @@ function renderWeekTab(raw) {
 
     <section class="matrix-card">
       <div class="section-head">
-        <span class="section-label">Матриця висот (тапай клітинку для деталей)</span>
+        <span class="section-label">Матриця висот (тапай клітинку)</span>
         <span class="mono" style="font-size:11px;color:var(--text-muted)">${unitHeader}</span>
       </div>
       <div class="matrix-scroll">
@@ -1010,26 +1009,10 @@ function renderWeekTab(raw) {
         </table>
       </div>
 
-      <div class="cell-detail-bar">
-        <div class="cell-detail-title">
-          ${selDay.weekday}, ${selDay.dateLabel} • ${formatHourShort(selSnap.isoTime)} • ${selLvl.agl} м AGL (${corridorLabel})
-        </div>
-        <div class="cell-detail-grid">
-          <span>Вітер: <strong>${fmtW(selLvl.wind)} ${unit} ${degToCompass(selLvl.dir)}</strong></span>
-          ${selLvl.agl <= 70 ? `<span>Пориви: <strong>${fmtW(selSnap.fpv.gusts)} ${unit}</strong></span>` : ''}
-          <span>Темп: <strong>${selLvl.temp >= 0 ? '+' : ''}${selLvl.temp.toFixed(1)}°C</strong></span>
-          <span>Роса: <strong>${selLvl.dew >= 0 ? '+' : ''}${selLvl.dew.toFixed(1)}°C</strong></span>
-          <span>Обмерзання: <strong>${selIceText}</strong></span>
-          <span>ВНМХ: <strong>${selSnap.cloudBase.label} (${selSnap.cloudBase.density}%)</strong></span>
-          <span>Опади: <strong>${Math.round(selSnap.precipProb)}%</strong></span>
-          ${selSnap.fog?.level && selSnap.fog.level !== 'none' ? `<span><strong>${selSnap.fog.label}</strong></span>` : ''}
-        </div>
+      <div id="cell-detail-container">
+        ${renderCellDetailBar(raw, state.selectedCell.hourIdx, state.selectedCell.agl)}
       </div>
     </section>
-
-    <div class="legend-row">
-      ${renderMatrixLegend(state.matrixLayer, activeProfile)}
-    </div>
   `;
 }
 
@@ -1390,17 +1373,9 @@ function bindMainEvents() {
       const realLabel = formatRealDateTime(currentIso, baseIso, state.hourOffset === 0);
 
       const lbl = document.getElementById('alt-scrubber-label');
-      const pill = document.getElementById('alt-time-pill');
       const listBox = document.getElementById('alt-list-box');
-      const modelsWrap = document.getElementById('alt-models-wrap');
-
       if (lbl) lbl.textContent = realLabel;
-      if (pill) pill.textContent = realLabel;
       if (listBox) listBox.innerHTML = renderAltitudesList(raw, currentIdx);
-      if (modelsWrap) {
-        modelsWrap.innerHTML = renderModelStrip(currentIdx);
-        bindModelButtons(modelsWrap);
-      }
     });
   }
 
@@ -1430,11 +1405,16 @@ function bindMainEvents() {
 
   document.querySelectorAll('.matrix-cell[data-cell-hour]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      state.selectedCell = {
-        hourIdx: parseInt(btn.dataset.cellHour, 10),
-        agl: parseInt(btn.dataset.cellAgl, 10),
-      };
-      render();
+      const hourIdx = parseInt(btn.dataset.cellHour, 10);
+      const agl = parseInt(btn.dataset.cellAgl, 10);
+      state.selectedCell = { hourIdx, agl };
+      document.querySelectorAll('.matrix-cell.selected').forEach((c) => c.classList.remove('selected'));
+      btn.classList.add('selected');
+      const detailContainer = document.getElementById('cell-detail-container');
+      const raw = getActiveRaw();
+      if (detailContainer && raw) {
+        detailContainer.innerHTML = renderCellDetailBar(raw, hourIdx, agl);
+      }
     });
   });
 

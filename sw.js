@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aerometric-ua-v15';
+const CACHE_NAME = 'aerometric-ua-v16';
 const ASSETS = [
   './',
   './index.html',
