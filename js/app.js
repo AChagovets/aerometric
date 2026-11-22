@@ -654,37 +654,6 @@ function renderConditionsTab(raw) {
     </section>
   `;
 }
-    const days = buildDailySummaries(raw);
-    const unit = windUnitLabel();
-    const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
-  return `
-    <div id="conditions-dynamic" style="display:flex;flex-direction:column;gap:14px;padding-bottom:130px;">
-      ${renderConditionsCore(raw, currentIdx)}
-    </div>
-
-    <section class="scrubber-card sticky-scrubber">
-      <div class="scrubber-top-row">
-        <div class="horizon-pills">
-          <button class="pill-btn ${state.horizon === '24h' ? 'active' : ''}" data-horizon="24h">24г</button>
-          <button class="pill-btn ${state.horizon === '48h' ? 'active' : ''}" data-horizon="48h">48г</button>
-          <button class="pill-btn ${state.horizon === '72h' ? 'active' : ''}" data-horizon="72h">72г</button>
-        </div>
-        <span id="scrubber-time-label" class="scrubber-time">
-          ${formatRealDateTime(currentIso, baseIso, state.hourOffset === 0)}
-        </span>
-      </div>
-      <div class="scrubber-bar-wrap">
-        <div class="status-strip">${stripHtml}</div>
-        <input id="time-slider" class="time-slider" type="range" min="0" max="${sliderMax}" value="${state.hourOffset}" step="1" />
-        <div class="scrubber-ticks">${buildSliderTicks(raw, state.baseHourIdx, sliderMax)}</div>
-      </div>
-    </section>
-  `;
-      </div>
-      ${bottomBlock}
-    </section>
-  `;
-}
 
 // =========================================================
 // Tab 2: Altitudes ("Ешелони висот" — ascending 10м → 1500м!)
