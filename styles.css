@@ -106,7 +106,16 @@ html, body {
   font-size: 15px;
   line-height: 1.45;
   min-height: 100%;
+  -webkit-text-size-adjust: 100%;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.unit, .metric-value, .slider-val, .setting-val, .corridor-tag, .wind-dir-badge, .model-quick-stat, .verdict-time-pill {
+  white-space: nowrap !important;
+}
+
+.matrix-container, .alt-list, .modal-body {
+  -webkit-overflow-scrolling: touch;
 }
 
 .mono {
@@ -123,7 +132,9 @@ html, body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Top Bar */
@@ -138,7 +149,10 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px 10px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding-bottom: 10px;
+  padding-left: max(14px, env(safe-area-inset-left, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
   border-bottom: 1px solid var(--border);
 }
 
@@ -284,20 +298,22 @@ html, body {
 /* Prominent Weather Model Cards */
 .model-strip {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .model-card {
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 10px 9px;
+  padding: 8px 8px 7px;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
   color: var(--text);
@@ -316,22 +332,29 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+  min-width: 0;
 }
 
 .model-name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .model-badge {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   text-transform: uppercase;
-  padding: 2px 5px;
+  padding: 1.5px 4.5px;
   border-radius: 999px;
   background: var(--surface-subtle);
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .model-card.active .model-badge {
@@ -344,29 +367,35 @@ html, body {
 }
 
 .model-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
-  line-height: 1.25;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .model-quick-stat {
-  margin-top: 2px;
+  margin-top: 1px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Verdict Banner */
 .verdict-card {
   border-radius: var(--radius-lg);
-  padding: 15px 18px;
+  padding: 12px 14px;
   border: 1.5px solid var(--border);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 6px;
-  min-height: 94px;
+  min-height: 84px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -387,15 +416,19 @@ html, body {
 
 .verdict-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .verdict-title {
-  font-size: 17px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: 1.25;
+  flex: 1;
+  min-width: 140px;
 }
 
 .verdict-card.good .verdict-title { color: var(--good); }
@@ -404,23 +437,25 @@ html, body {
 
 .verdict-time-pill {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 2.5px 8px;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .verdict-reason {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
   opacity: 0.9;
-  min-height: 38px;
+  min-height: auto;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -428,20 +463,22 @@ html, body {
 /* Priority Metrics 2-Column Minimalist Grid */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .metric-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px;
-  min-height: 118px;
+  padding: 11px 11px 10px;
+  min-height: 104px;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  gap: 5px;
   box-shadow: var(--shadow-sm);
   position: relative;
 }
@@ -462,21 +499,28 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
+  min-width: 0;
 }
 
 .metric-label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .corridor-tag {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 1.5px 5px;
+  border-radius: 5px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .corridor-tag.fpv { background: var(--fpv-bg); color: var(--fpv-accent); }
@@ -486,15 +530,18 @@ html, body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .metric-value {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .metric-value.good { color: var(--good); }
@@ -505,24 +552,27 @@ html, body {
 .wind-dir-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .dir-arrow {
   display: inline-block;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
   transition: transform 0.2s ease;
 }
 
 .metric-sub {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.3;
+  line-height: 1.25;
+  white-space: normal;
 }
 
 /* Extended Metrics (Hidden by Default) */
@@ -576,9 +626,9 @@ html, body {
 
 .horizon-pills {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--surface-subtle);
-  padding: 4px;
+  padding: 3px;
   border-radius: 12px;
 }
 
@@ -588,11 +638,15 @@ html, body {
   background: transparent;
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 7px 8px;
+  padding: 6px 3px;
   border-radius: 9px;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -1073,7 +1127,16 @@ input[type="range"].time-slider {
 .slider-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.slider-val, .setting-val {
+  white-space: nowrap !important;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13.5px;
 }
 
 .model-guide-item {
@@ -1627,4 +1690,158 @@ input[type="range"].time-slider {
   font-size: 12px;
   font-weight: 600;
   color: var(--danger);
+}
+
+/* =========================================================
+   iPhone & Mobile Specific Responsive Refinements
+   ========================================================= */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px 12px 16px;
+    gap: 12px;
+  }
+
+  .top-bar {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    gap: 8px;
+  }
+
+  .location-btn {
+    padding: 5px 10px 5px 8px;
+    gap: 6px;
+    max-width: calc(100% - 90px);
+  }
+
+  .loc-name {
+    font-size: 13.5px;
+  }
+
+  .loc-sub {
+    font-size: 10px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .section-label {
+    font-size: 11px;
+  }
+
+  .info-link {
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+
+  .model-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .model-card {
+    padding: 7px 5px 6px;
+  }
+
+  .model-name {
+    font-size: 11.5px;
+  }
+
+  .model-badge {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  .model-meta {
+    font-size: 9px;
+  }
+
+  .model-quick-stat {
+    font-size: 9.5px;
+  }
+
+  .verdict-card {
+    padding: 11px 12px;
+    min-height: 80px;
+  }
+
+  .verdict-title {
+    font-size: 15px;
+  }
+
+  .verdict-time-pill {
+    font-size: 10.5px;
+    padding: 2px 7px;
+  }
+
+  .verdict-reason {
+    font-size: 12px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .metric-card {
+    padding: 9px 8px 8px;
+    min-height: 98px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+  }
+
+  .metric-value {
+    font-size: 17.5px;
+  }
+
+  .wind-dir-badge {
+    font-size: 10.5px;
+  }
+
+  .dir-arrow {
+    font-size: 13px;
+  }
+
+  .corridor-tag {
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+
+  .metric-sub {
+    font-size: 10px;
+  }
+
+  .horizon-pills {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .pill-btn {
+    font-size: 10.5px;
+    padding: 6px 2px;
+  }
+
+  .scrubber-card {
+    padding: 11px 12px;
+    gap: 10px;
+  }
+
+  .bottom-nav {
+    padding-top: 6px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav-item {
+    font-size: 10.5px;
+    gap: 3px;
+  }
+
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
 }
