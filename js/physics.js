@@ -357,7 +357,7 @@ export function evaluateCellSuitability(snap, lvl, settings, vehicleFilter = 'al
   return { severity, inCloud };
 }
 
-export function buildHourSnapshot(raw, idx, settings, kpValue) {
+export function buildHourSnapshot(raw, idx, settings, kpValue, isNow = false) {
   const h = raw.hourly;
   const levels = buildHourlyProfile(raw, idx);
   const profile = settings.flightProfile || 'all'; // 'fpv' | 'wing' | 'all'
@@ -446,7 +446,7 @@ export function buildHourSnapshot(raw, idx, settings, kpValue) {
   }
 
   // Verdict calculation tailored to active flightProfile ('fpv' | 'wing' | 'all')
-  const copy = getCopy(settings.militaryMode);
+  const copy = getCopy(settings.militaryMode, idx);
   const unitLabel = settings.windUnit === 'kmh' ? 'км/год' : 'м/с';
   const fmtW = (ms) => formatWindValue(ms, settings.windUnit);
 
@@ -512,10 +512,10 @@ export function buildHourSnapshot(raw, idx, settings, kpValue) {
   const maxRain = settings.maxRainProb ?? 65;
   if (precipMm >= 1.0 || precipProb >= maxRain) {
     setLevel('danger');
-    reasons.push(copy.reasonRain(Math.round(precipProb)));
+    reasons.push(copy.reasonRain(Math.round(precipProb), precipMm, isNow));
   } else if (precipMm >= 0.2 || precipProb >= Math.max(20, maxRain * 0.55)) {
     setLevel('warn');
-    reasons.push(copy.reasonRain(Math.round(precipProb)));
+    reasons.push(copy.reasonRain(Math.round(precipProb), precipMm, isNow));
   }
 
   const verdictTitle =

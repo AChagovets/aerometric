@@ -5,6 +5,7 @@ import {
   COMPASS_UK,
   degToCompass,
   getCopy,
+  rerollMilitarySeed,
   formatCityDisplay,
 } from './locales.js';
 import {
@@ -239,6 +240,7 @@ function windArrowHtml(deg) {
 
 // Data Loading
 async function loadWeather(force = false) {
+  if (force) rerollMilitarySeed();
   state.loading = true;
   state.error = null;
   const btnRefresh = document.getElementById('btn-refresh');
@@ -405,13 +407,14 @@ function buildDailySummaries(raw) {
 // =========================================================
 
 function renderConditionsCore(raw, hourIdx) {
-  const snap = buildHourSnapshot(raw, hourIdx, state.settings, state.kpIndex);
-  const copy = getCopy(state.settings.militaryMode);
+  const isNow = hourIdx === state.baseHourIdx;
+  const snap = buildHourSnapshot(raw, hourIdx, state.settings, state.kpIndex, isNow);
+  const copy = getCopy(state.settings.militaryMode, hourIdx);
   const unit = windUnitLabel();
   const fmtW = (v) => formatWindValue(v, state.settings.windUnit);
   const baseIso = raw.hourly.time[state.baseHourIdx];
 
-  const timeBadge = formatRealDateTime(snap.isoTime, baseIso, hourIdx === state.baseHourIdx);
+  const timeBadge = formatRealDateTime(snap.isoTime, baseIso, isNow);
 
   const fpvSev = snap.fpv.severity;
   const maxGusts = state.settings.maxFpvGusts ?? state.settings.maxFpvWind * 1.4;
@@ -516,7 +519,7 @@ function renderConditionsCore(raw, hourIdx) {
 
       <div class="metric-card fpv-card status-${gustSev}" data-metric="gusts">
         <div class="metric-header">
-          <span class="metric-label">Пориви біля землі</span>
+          <span class="metric-label">${copy.gustsLabel}</span>
           <span class="corridor-tag fpv">10 м</span>
         </div>
         <div class="metric-main">
@@ -541,7 +544,7 @@ function renderConditionsCore(raw, hourIdx) {
 
       <div class="metric-card status-${fpvCardSev}" data-metric="gusts">
         <div class="metric-header">
-          <span class="metric-label">Зліт / Посадка</span>
+          <span class="metric-label">${copy.takeoffLabel}</span>
           <span class="corridor-tag wing">10 м</span>
         </div>
         <div class="wind-split-row">
@@ -607,7 +610,7 @@ function renderConditionsCore(raw, hourIdx) {
         <div class="metric-main">
           <span class="metric-value ${precipSev}">${snap.precipMm.toFixed(1)} <small style="font-size:12px">мм</small></span>
         </div>
-        <div class="metric-sub">Вірогідність: <strong class="mono">${Math.round(snap.precipProb)}%</strong></div>
+        <div class="metric-sub">${copy.precipSub(Math.round(snap.precipProb), snap.precipMm, isNow)}</div>
       </div>
 
       <div class="metric-card ${snap.icingLevel === 'high' ? 'status-ice' : snap.icingLevel === 'mod' ? 'status-warn' : 'status-good'}" data-metric="icing">
